@@ -9,30 +9,24 @@ app = Flask(__name__)
 # Konfiguration
 # --------------------------
 
-# Influx-kompatibler Write Endpoint von Grafana Cloud
-# (NICHT api/v2/write verwenden!)
-WRITE_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net"
-
-# Token aus ENV-Variable oder hier als Fallback (nur für Testzwecke)
-INFLUX_TOKEN = os.getenv("INFLUX_TOKEN") or "dein_grafana_token"  # ⚠️ Ersetze durch echten Token oder setze ENV bei Render
+WRITE_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v2/write"
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN") or "DEIN_GRAFANA_TOKEN"
+BUCKET = "default"
+ORG = "main"
 
 # --------------------------
 # Webhook-Route für Shelly
 # --------------------------
 
-@app.route("/shelly", methods=["GET", "POST"])
+@app.route("/shelly", methods=["GET"])
 def shelly_webhook():
-    # Temperatur holen aus GET- oder POST-Parametern
-    temp_param = request.args.get("temp") or request.form.get("temp")
+    temp_param = request.args.get("temp")
     try:
         temperature = float(temp_param)
     except (TypeError, ValueError):
         return "Missing or invalid 'temp' parameter", 400
 
-    # Unix Timestamp
     timestamp = int(datetime.datetime.utcnow().timestamp())
-
-    # Influx Line Protocol
     line = f"pool_temperature,sensor=pool value={temperature} {timestamp}"
 
     headers = {
@@ -40,8 +34,14 @@ def shelly_webhook():
         "Content-Type": "text/plain"
     }
 
+    params = {
+        "bucket": BUCKET,
+        "org": ORG,
+        "precision": "s"
+    }
+
     try:
-        response = requests.post(WRITE_URL, data=line, headers=headers)
+        response = requests.post(WRITE_URL, params=params, data=line, headers=headers)
         print(f"Sent: {line}")
         print(f"Response {response.status_code}: {response.text}")
         return "OK", response.status_code
@@ -50,7 +50,15 @@ def shelly_webhook():
         return "Error", 500
 
 # --------------------------
-# Render braucht das hier
+# Testroute
+# --------------------------
+
+@app.route("/ping")
+def ping():
+    return "pong", 200
+
+# --------------------------
+# Render Start
 # --------------------------
 
 if __name__ == "__main__":
