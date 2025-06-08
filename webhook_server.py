@@ -9,26 +9,28 @@ app = Flask(__name__)
 # Konfiguration
 # --------------------------
 
-# Influx-kompatibler Write Endpoint von Grafana Cloud (nicht api/v2!)
+# Influx-kompatibler Write Endpoint von Grafana Cloud (kein api/v2/write!)
 WRITE_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net"
 
-# Aus Grafana Cloud → "Username / Instance ID" → als ENV-Variable speichern oder hier direkt setzen
+# Token aus ENV-Variable oder direkt hier einsetzen (aus Sicherheitsgründen ENV empfohlen)
 INFLUX_TOKEN = os.getenv("INFLUX_TOKEN") or "dein_grafana_token"
 
 # --------------------------
-# Webhook-Route für Shelly
+# Webhook-Route für Shelly (GET und POST erlauben)
 # --------------------------
 
-@app.route("/shelly")
+@app.route("/shelly", methods=["GET", "POST"])
 def shelly_webhook():
+    # Temperatur aus Query-Parameter (GET) oder Form (POST) holen
+    temp_param = request.args.get("temp") or request.form.get("temp")
     try:
-        temperature = float(request.args.get("temp"))
+        temperature = float(temp_param)
     except (TypeError, ValueError):
         return "Missing or invalid 'temp' parameter", 400
 
     timestamp = int(datetime.datetime.utcnow().timestamp())
-    
-    # Influx Line Protocol → mit sensor-Label für Prometheus
+
+    # Influx Line Protocol mit Sensor-Label
     line = f"pool_temperature,sensor=pool value={temperature} {timestamp}"
 
     headers = {
@@ -36,7 +38,6 @@ def shelly_webhook():
         "Content-Type": "text/plain"
     }
 
-    # Sende Daten an Grafana Cloud
     try:
         response = requests.post(WRITE_URL, data=line, headers=headers)
         print(f"Sent: {line}")
