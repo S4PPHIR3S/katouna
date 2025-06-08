@@ -1,26 +1,45 @@
-# datei: webhook_server.py
 from flask import Flask, request
 import requests
-import time
-
-# Grafana Cloud / InfluxDB Konfiguration
-INFLUX_URL = "https://<dein-endpunkt>.grafana.net/api/v2/write?org=<deine-org>&bucket=<dein-bucket>&precision=s"
-INFLUX_TOKEN = "<dein-token>"
+import datetime
 
 app = Flask(__name__)
 
+# Deine Zugangsdaten
+INFLUX_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net"
+INFLUX_USERNAME = "2486387"
+INFLUX_TOKEN = "DEIN_API_TOKEN_HIER"
+BUCKET = "default"
+ORG = "main"
+
+# Die genaue Write-URL für Influx-kompatibles Senden
+WRITE_URL = f"{INFLUX_URL}/api/v2/write?bucket={BUCKET}&org={ORG}&precision=s"
+
 @app.route("/shelly", methods=["GET"])
-def receive_temp():
+def receive_data():
     temp = request.args.get("temp")
-    if temp:
-        payload = f"pool_temperature value={temp} {int(time.time())}"
-        headers = {
-            "Authorization": f"Token {INFLUX_TOKEN}",
-            "Content-Type": "text/plain"
-        }
-        r = requests.post(INFLUX_URL, headers=headers, data=payload)
-        return f"OK: {r.status_code}", r.status_code
-    return "Fehlender Temperaturwert", 400
+
+    if temp is None:
+        return "Missing 'temp' query parameter", 400
+
+    try:
+        temperature = float(temp)
+    except ValueError:
+        return "Invalid 'temp' value", 400
+
+    # InfluxDB Line Protocol Format
+    line = f"pool_temperature value={temperature} {int(datetime.datetime.utcnow().timestamp())}"
+
+    headers = {
+        "Authorization": f"Token {INFLUX_TOKEN}",
+        "Content-Type": "text/plain"
+    }
+
+    response = requests.post(WRITE_URL, headers=headers, data=line)
+
+    if response.status_code == 204:
+        return "OK", 200
+    else:
+        return f"Error from InfluxDB: {response.text}", 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=8080)
