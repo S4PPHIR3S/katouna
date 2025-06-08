@@ -7,7 +7,7 @@ app = Flask(__name__)
 # Deine Zugangsdaten
 INFLUX_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net"
 INFLUX_USERNAME = "2486387"
-INFLUX_TOKEN = "DEIN_API_TOKEN_HIER"
+INFLUX_TOKEN = "glc_eyJvIjoiMTQ1MTIzNCIsIm4iOiJzdGFjay0xMjgxMDc2LWluZmx1eC13cml0ZS1rYXRvdW5hX3Rva2VuIiwiayI6IjIxMTNnV1E3NldtMjhJUmxNVHMwRDNGRyIsIm0iOnsiciI6InByb2QtZXUtd2VzdC0yIn19"
 BUCKET = "default"
 ORG = "main"
 
