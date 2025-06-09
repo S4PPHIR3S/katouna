@@ -5,62 +5,50 @@ import os
 
 app = Flask(__name__)
 
-# --------------------------
-# Konfiguration
-# --------------------------
+# Optional: Ping-Route für Test
+@app.route("/ping")
+def ping():
+    return "pong", 200
 
-WRITE_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v2/write"
-INFLUX_TOKEN = os.getenv("INFLUX_TOKEN") or "DEIN_GRAFANA_TOKEN"
-BUCKET = "default"
-ORG = "main"
-
-# --------------------------
-# Webhook-Route für Shelly
-# --------------------------
-
+# Webhook-Route für Shelly (GET erlaubt)
 @app.route("/shelly", methods=["GET"])
-def shelly_webhook():
-    temp_param = request.args.get("temp")
+def shelly():
+    temp = request.args.get("temp")
+    if not temp:
+        return "Missing temperature", 400
+
     try:
-        temperature = float(temp_param)
-    except (TypeError, ValueError):
-        return "Missing or invalid 'temp' parameter", 400
+        temperature = float(temp)
+    except ValueError:
+        return "Invalid temperature", 400
 
     timestamp = int(datetime.datetime.utcnow().timestamp())
     line = f"pool_temperature,sensor=pool value={temperature} {timestamp}"
 
     headers = {
-        "Authorization": f"Token {INFLUX_TOKEN}",
+        "Authorization": f"Token {os.getenv('INFLUX_TOKEN') or 'DEIN_TOKEN_HIER'}",
         "Content-Type": "text/plain"
     }
 
     params = {
-        "bucket": BUCKET,
-        "org": ORG,
+        "bucket": "default",
+        "org": "main",
         "precision": "s"
     }
 
-    try:
-        response = requests.post(WRITE_URL, params=params, data=line, headers=headers)
-        print(f"Sent: {line}")
-        print(f"Response {response.status_code}: {response.text}")
-        return "OK", response.status_code
-    except Exception as e:
-        print(f"Exception: {e}")
-        return "Error", 500
+    response = requests.post(
+        "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v2/write",
+        params=params,
+        data=line,
+        headers=headers
+    )
 
-# --------------------------
-# Testroute
-# --------------------------
+    print(f"Sent line: {line}")
+    print(f"Influx response: {response.status_code} - {response.text}")
 
-@app.route("/ping")
-def ping():
-    return "pong", 200
+    return "OK", response.status_code
 
-# --------------------------
-# Render Start
-# --------------------------
-
+# Für Render-Deployment
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
