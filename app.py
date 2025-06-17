@@ -9,49 +9,52 @@ app = Flask(__name__)
 # Konfiguration
 # --------------------------
 
-# Korrekte InfluxDB v2 Write URL von Grafana Cloud (Pfad + Query-Parameter!)
-WRITE_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v2/write?bucket=default&org=main&precision=s"
+# Influx Write Endpoint für Grafana Cloud mit Push-Support
+WRITE_URL = "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v1/push/influx/write"
 
-# API Token aus ENV-Variable oder direkt hier (für Sicherheit ENV empfohlen)
-INFLUX_TOKEN = os.getenv("INFLUX_TOKEN") or "dein_grafana_api_token"
+# User-ID (Instance ID) und Token (Access Policy)
+INFLUX_USER = os.getenv("INFLUX_USER") or "2486387"  # Deine Instance ID
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN") or "dein_token_hier"
 
 # --------------------------
-# Shelly Webhook-Route (GET und POST)
+# Webhook-Route für Shelly (GET + POST)
 # --------------------------
 
 @app.route("/shelly", methods=["GET", "POST"])
 def shelly_webhook():
-    # Temperatur aus Query-Param (GET) oder Form-Daten (POST)
+    # Temperatur abrufen
     temp_param = request.args.get("temp") or request.form.get("temp")
     try:
         temperature = float(temp_param)
     except (TypeError, ValueError):
         return "Missing or invalid 'temp' parameter", 400
 
-    timestamp = int(datetime.datetime.utcnow().timestamp())
+    timestamp = int(datetime.datetime.utcnow().timestamp() * 1e9)  # Influx erwartet Nanosekunden
 
-    # InfluxDB Line Protocol Format
+    # Influx Line Protocol mit Messung und Tag
     line = f"pool_temperature,sensor=pool value={temperature} {timestamp}"
 
     headers = {
-        "Authorization": f"Token {INFLUX_TOKEN}",
-        "Content-Type": "text/plain; charset=utf-8"
+        "Authorization": f"Bearer {INFLUX_USER}:{INFLUX_TOKEN}",
+        "Content-Type": "text/plain"
     }
 
     try:
         response = requests.post(WRITE_URL, data=line, headers=headers)
         print(f"Sent: {line}")
         print(f"Response {response.status_code}: {response.text}")
-        if response.status_code == 204:
-            return "OK", 200
-        else:
-            return f"InfluxDB write failed: {response.status_code} {response.text}", 500
+        return f"Received temperature: {temperature}", response.status_code
     except Exception as e:
         print(f"Exception: {e}")
         return "Error", 500
 
+# Optional: Health Check
+@app.route("/ping")
+def ping():
+    return "pong", 200
+
 # --------------------------
-# Render / Railway Startup
+# Entry Point
 # --------------------------
 
 if __name__ == "__main__":
