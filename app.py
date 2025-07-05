@@ -22,17 +22,21 @@ INFLUX_TOKEN = os.getenv("INFLUX_TOKEN") or "dein_token_hier"
 
 @app.route("/shelly", methods=["GET", "POST"])
 def shelly_webhook():
-    # Temperatur abrufen
-    temp_param = request.args.get("temp") or request.form.get("temp")
+    # Temperaturen abrufen
+    temp_param_pool = request.args.get("temp_pool") or request.form.get("temp_pool")
+    temp_param_air = request.args.get("temp_air") or request.form.get("temp_air")
     try:
-        temperature = float(temp_param)
+        temperature_pool = float(temp_param_pool)
+        temperature_air = float(temp_param_air)
     except (TypeError, ValueError):
-        return "Missing or invalid 'temp' parameter", 400
+        return "Missing or invalid 'temps' parameter", 400
 
     timestamp = int(datetime.datetime.utcnow().timestamp() * 1e9)  # Influx erwartet Nanosekunden
 
     # Influx Line Protocol mit Messung und Tag
-    line = f"pool_temperature,sensor=pool value={temperature} {timestamp}"
+    line_pool = f"pool_temperature,sensor=pool value={temperature_pool} {timestamp}"
+
+    line_air = f"air_temperature,sensor=air value={temperature_air} {timestamp}"
 
     headers = {
         "Authorization": f"Bearer {INFLUX_USER}:{INFLUX_TOKEN}",
@@ -41,9 +45,10 @@ def shelly_webhook():
 
     try:
         response = requests.post(WRITE_URL, data=line, headers=headers)
-        print(f"Sent: {line}")
+        print(f"Sent: {line_pool}")
+        print(f"Sent: {line_air}")
         print(f"Response {response.status_code}: {response.text}")
-        return f"Received temperature: {temperature}", response.status_code
+        return f"Received temperatures: pool:{temperature_pool}, air: {temperature_air}", response.status_code
     except Exception as e:
         print(f"Exception: {e}")
         return "Error", 500
