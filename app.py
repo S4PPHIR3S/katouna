@@ -47,7 +47,7 @@ def shelly_webhook():
         response = requests.post(WRITE_URL, data=line_pool, headers=headers)
         print(f"Sent: {line_pool}")
         print(f"Response {response.status_code}: {response.text}")
-        return f"Received temperatures: pool:{temperature_pool}, response.status_code
+        return f"Received temperatures: pool:{temperature_pool}", response.status_code
     except Exception as e:
         print(f"Exception: {e}")
         return "Error", 500
@@ -57,7 +57,7 @@ def shelly_webhook():
         response = requests.post(WRITE_URL, data=line_air, headers=headers)
         print(f"Sent: {line_air}")
         print(f"Response {response.status_code}: {response.text}")
-        return f"Received temperatures: air:{temperature_air}, response.status_code
+        return f"Received temperatures: air:{temperature_air}", response.status_code
     except Exception as e:
         print(f"Exception: {e}")
         return "Error", 500
